@@ -1,6 +1,6 @@
-t_test <- function(varx, nx, vary=NULL, ny=NULL, meanx, meany=NULL,
-                     alternative='two.sided',
-                     mu=0, conf.level=0.95){
+t_test <- function(meanx, varx, nx, meany=NULL, vary=NULL, ny=NULL, 
+                   alternative='two.sided', mu=0, 
+                   conf.level=0.95, var.equal=FALSE){
   
   # Checking if the information is correct
   
@@ -35,30 +35,28 @@ t_test <- function(varx, nx, vary=NULL, ny=NULL, meanx, meany=NULL,
   #To check if alternative is a valid name
   stopifnot(alternative %in% c("two.sided","greater","less","t","g","l"))
   
-  #respuesta para una sola población
+  #response for a single population
   if (is.null(meany)){
     
-    res <- t_test_one(meanx, nx, alternative, 
-                        conf.level, mu)
-  } else if (varx == vary){
-    res<-t_test_two_equal(meanx, varx, nx,#varianzas iguales
-                         meany, vary, ny, 
-                         alternative, conf.level, mu)
+    res <- t_test_one(meanx, varx, nx, alternative, mu, conf.level)
+    
+  } else if (var.equal == TRUE){
+    res <- t_test_two_equal(meanx, varx, nx, meany, vary, ny, 
+                            alternative, mu, conf.level, var.equal)
   }else {
-    res<-t_test_two_difer(meanx, varx, nx, #varianzas diferen
-                        meany, vary, ny, 
-                        alternative,conf.level, mu)
+    res <- t_test_two_difer(meanx, varx, nx, meany, vary, ny, 
+                            alternative, mu, conf.level, var.equal)
   }
-  class(res) <- "ttest"
+  class(res) <- "htest"
   res   
   
 }
 
 #' @export
-# funcion para 1 media
+# function for a single population
 
-t_test_one <- function(meanx, varx, nx, mu,
-                       alternative, conf.level) {
+t_test_one <- function(meanx, varx, nx, alternative, mu,
+                       conf.level, var.equal) {
   
   alpha <- 1 - conf.level
   
@@ -87,20 +85,34 @@ t_test_one <- function(meanx, varx, nx, mu,
                   Inf)
   }
   
-  res <- list(conf.int = conf.int,
-              statistic = statistic,alt=alt,
-              alternative = alternative,
-              p.value = p.value, mu = mu,
-              df=nx-1, problem ='one_sample')
+  # To ensure that the output values are in the correct form
+  names(statistic) <- 'Z'
+  parameter <- nx - 1
+  names(parameter) <- 'df'
+  attr(conf.int, 'conf.level') <- conf.level
+  estimate <- meanx
+  names(estimate) <- 'mean of x'
+  method <- 'Z test for mean'
+  data.name <- paste('meanx =', meanx, 'nx =', nx, 'and varx =', varx)
+  
+  res <- list(statistic=statistic,
+              parameter=parameter,
+              p.value=p.value,
+              conf.int=conf.int,
+              estimate=estimate,
+              mu=mu,
+              alternative=alternative,
+              method=method,
+              data.name=data.name)
   return(res)
-
 }
-#para 2 poblaciones con varianzas diferentes
+
+# Function for two population when the variance is different
 #' @export
 t_test_two_difer <- function(meanx, varx, nx,
                              meany, vary, ny,
                              mu, alternative,
-                             conf.level) {
+                             conf.level, var.equal) {
   
   alpha <- 1 - conf.level
   
@@ -129,20 +141,36 @@ t_test_two_difer <- function(meanx, varx, nx,
     conf.int <- c((meanx-meany) - qt(p=alpha, df=df, lower.tail=F) * se,
                   Inf)
   }
+  # To ensure that the output values are in the correct form
+  names(statistic) <- 'T'
+  parameter <- df
+  names(parameter) <- 'df'
+  attr(conf.int, 'conf.level') <- conf.level
+  estimate <- meanx - meany
+  names(estimate) <- 'difference of means'
+  method <- 'T test to compare two means with different variance'
+  data.name <- paste('meanx =', meanx, ', nx =', nx,
+                     ', meanyy =', meany, 'and ny =', ny)
   
-  res <- list(conf.int=conf.int,
-              statistic=statistic,
-              alt=alt, alternative=alternative,
-              p.value=p.value, mu=mu,
-              df=df, problem='two_samples_diff')
+  res <- list(statistic=statistic,
+              parameter=parameter,
+              p.value=p.value,
+              conf.int=conf.int,
+              estimate=estimate,
+              mu=mu,
+              alternative=alternative,
+              method=method,
+              data.name=data.name)
   return(res)
 }
-#2 poblaciones con varianzas iguales
+
+
+#Function for two population when the variance is equal.
 #' @export
 t_test_two_equal <- function(meanx, varx, nx,
                              meany, vary, ny,
                              mu, alternative,
-                             conf.level) {
+                             conf.level, var.equal) {
   
   alpha <- 1 - conf.level
   
@@ -173,64 +201,90 @@ t_test_two_equal <- function(meanx, varx, nx,
                   Inf)
   }
   
-  res <- list(conf.int=conf.int,
-              statistic=statistic,
-              alt=alt,alternative=alternative,
-              p.value=p.value,alternative=alternative,
-              df=df, problem='two_samples_equal',
-              mu=mu)
+  # To ensure that the output values are in the correct form
+  names(statistic) <- 'T'
+  parameter <- nx + ny + 2
+  names(parameter) <- 'df'
+  attr(conf.int, 'conf.level') <- conf.level
+  estimate <- meanx - meany
+  names(estimate) <- 'difference of means'
+  method <- 'T test to compare two means with equal variance'
+  data.name <- paste('meanx =', meanx, ', nx =', nx,
+                     ', meanyy =', meany, 'and ny =', ny)
+  
+  res <- list(statistic=statistic,
+              parameter=parameter,
+              p.value=p.value,
+              conf.int=conf.int,
+              estimate=estimate,
+              mu=mu,
+              alternative=alternative,
+              method=method,
+              data.name=data.name)
   return(res)
 }
+  
+
 ###para ver los resultados 
 #' @export
-print.ttest <- function(mod, ...)
+plot.htest <- function(mod, col='red', cex=0.8, shade.col='red')
 {
-  if (mod$problem == 'one_sample') {
-    cat("       t test for mean   \n")
-    cat("\n")
-    cat(paste("t  = ", round(mod$statistic, digits=5), 
-              ", df = ", mod$df,
-              ", p-value = ", mod$p.value, "\n"))
-    cat("Alternative hypothesis: true mean is" , mod$alt,
-        mod$mu, "\n")
-    cat(mod$conf.level * 100, "percent confidence interval: \n")
-    cat(" ", mod$conf.int, "\n")
-    cat("Sample stimates \n")
-    cat(" ", mod$meanx, "\n")
+  # Z test
+  if (mod$method %in% c('Z test for mean')) {
+    if (mod$alternative == 'less')
+      asbio::shade.norm(x=mod$statistic, tail='lower',
+                        las=1, shade.col=shade.col)
+    if (mod$alternative == 'greater')
+      asbio::shade.norm(x=mod$statistic, tail='upper', 
+                        las=1, shade.col=shade.col)
+    if (mod$alternative == 'two.sided')
+      asbio::shade.norm(x=mod$statistic, tail="two", 
+                        las=1, shade.col=shade.col)
+    title(main='Shaded area corresponds to p-value')
+    mtext(text=round(mod$statistic, digits=4),
+          side=1, at=mod$statistic, 
+          col=col, cex=cex, adj=0.5)
   }
-  else if (mod$problem == "two_samples_diff"){
-    cat("       t test to compare two variances   \n")
-    cat("\n")
-    cat(paste("t = ", round(mod$statistic, digits=5), 
-              ", num df = ", mod$df,
-              ", p-value = ", mod$p.value, "\n"))
-    cat("Alternative hypothesis: true difference of means is" , mod$alt,
-        mod$mu, "\n")
-    cat(mod$conf.level * 100, "percent confidence interval: \n")
-    cat(" ", mod$conf.int, "\n")
-    cat("sample estimates: \n")
-    cat("         ", mod$meanx, mean$meany, "\n")
+  
+  # T test equal
+  if (mod$method %in% c('T test to compare two means with different variance')) {
+    if (mod$alternative == 'less')
+      asbio::shade.chi(x=mod$statistic, nu=mod$parameter, 
+                       tail='lower', las=1, shade.col=shade.col)
+    if (mod$alternative == 'greater')
+      asbio::shade.chi(x=mod$statistic, nu=mod$parameter, 
+                       tail='upper', las=1, shade.col=shade.col)
+    if (mod$alternative == 'two.sided')
+      asbio::shade.chi(nu=mod$parameter, tail="two",
+                       las=1, shade.col=shade.col,
+                       prob.to.each.tail=mod$p.value/2)
+    title(main='Shaded area corresponds to p-value')
+    mtext(text=round(mod$statistic, digits=4),
+          side=1, at=mod$statistic, 
+          col=col, cex=cex, adj=0.5)
   }
-  if (mod$problem == "two_samples_equal"){
-    cat("       t test to compare two variances   \n")
-    cat("\n")
-    cat(paste("t = ", round(mod$statistic, digits=5), 
-              ", num df = ", mod$df,
-              ", p-value = ", mod$p.value, "\n"))
-    cat("Alternative hypothesis: true difference of means is" , mod$alt,
-        mod$mu, "\n")
-    cat(mod$conf.level * 100, "percent confidence interval: \n")
-    cat(" ", mod$conf.int, "\n")
-    cat("sample estimates: \n")
-    cat("         ", mod$meanx, mean$meany, "\n")
+  
+  # T test different
+  if (mod$method %in% c('T test to compare two means with equal variance')) {
+    if (mod$alternative == 'less')
+      asbio::shade.F(x=mod$statistic,
+                     nu=mod$parameter,
+                     tail='lower', las=1, shade.col=shade.col)
+    if (mod$alternative == 'greater')
+      asbio::shade.F(x=mod$statistic,
+                     nu1=mod$parameter[1],
+                     nu2=mod$parameter[2], 
+                     tail='upper', las=1, shade.col=shade.col)
+    if (mod$alternative == 'two.sided')
+      asbio::shade.F(nu1=mod$parameter[1],
+                     nu2=mod$parameter[2], 
+                     tail="two", shade.col=shade.col,
+                     prob.to.each.tail=mod$p.value/2, las=1)
+    title(main='Shaded area corresponds to p-value')
+    mtext(text=round(mod$statistic, digits=4),
+          side=1, at=mod$statistic, 
+          col=col, cex=cex, adj=0.5)
   }
 }
-
-
-#PRUEBAS
-
-x <- rnorm(n=15, mean=10, sd=5)
-       
-t_test(meanx=10, alternative='two.sided',nx=15, varx=24)
 
 
