@@ -17,13 +17,15 @@ t_test <- function(meanx, varx, nx, meany=NULL, vary=NULL, ny=NULL,
     stop("Some information about sample y is missing", "\n", "")
   
   # To check if the information about y sample is corrected
-  if (! is.null(vary) & ! is.null(ny)) {
+  if (! is.null(vary) & ! is.null(ny) & ! is.null(meany)) {
     if (vary <= 0) 
       stop(paste("The variance y must be positive", "\n", ""))
     if (ny <= 0) 
       stop(paste("The sample size ny must be positive", "\n", ""))
     if (ny %% 1 != 0) 
       stop(paste("The sample size ny must be integer", "\n", ""))
+    if (is.null(meany) == TRUE)
+      stop(paste("Some information about y sample is missing", "\n",""))
   }
   
   #To check if the conf.level it´s a number between 1 and 0
@@ -36,7 +38,7 @@ t_test <- function(meanx, varx, nx, meany=NULL, vary=NULL, ny=NULL,
   stopifnot(alternative %in% c("two.sided","greater","less","t","g","l"))
   
   #response for a single population
-  if (is.null(meany)){
+  if (is.null(meany) & is.null(vary)){
     
     res <- t_test_one(meanx, varx, nx, alternative, mu, conf.level)
     
@@ -61,7 +63,8 @@ t_test_one <- function(meanx, varx, nx, alternative, mu,
   alpha <- 1 - conf.level
   
   if (alternative == 'two.sided') {
-    alt<-"not equal to"
+    mu <- as.numeric(mu)
+    alt <- paste("True mean is not equal to", mu) 
     statistic <- (meanx - mu) / sqrt(varx / nx)
     p.value <- 2 * pt(q=abs(statistic), df=nx-1, lower.tail=FALSE)
     quantiles <- c(-qt(p=alpha/2, df=nx-1, lower.tail=FALSE),
@@ -70,7 +73,8 @@ t_test_one <- function(meanx, varx, nx, alternative, mu,
   }
   
   if (alternative == 'less') {
-    alt<-"less than"
+    mu <- as.numeric(mu)
+    alt <- paste("True mean is less than", mu)
     statistic <- (meanx - mu) / sqrt(varx / nx)
     p.value <- pt(q=statistic, df=nx-1, lower.tail=TRUE)
     conf.int <- c(-Inf,
@@ -78,7 +82,8 @@ t_test_one <- function(meanx, varx, nx, alternative, mu,
   }
   
   if (alternative == 'greater') {
-    alt<-"greater than"
+    mu <- as.numeric(mu)
+    alt <- paste("True mean is greater than", mu)
     statistic <- (meanx - mu) / sqrt(varx / nx)
     p.value <- pt(q=statistic, df=nx-1, lower.tail=FALSE)
     conf.int <- c(meanx + qt(p=alpha, df=nx-1) * sqrt(varx / nx),
@@ -86,13 +91,13 @@ t_test_one <- function(meanx, varx, nx, alternative, mu,
   }
   
   # To ensure that the output values are in the correct form
-  names(statistic) <- 'Z'
+  names(statistic) <- 't'
   parameter <- nx - 1
   names(parameter) <- 'df'
   attr(conf.int, 'conf.level') <- conf.level
   estimate <- meanx
   names(estimate) <- 'mean of x'
-  method <- 'Z test for mean'
+  method <- 'One Sample t-test'
   data.name <- paste('meanx =', meanx, 'nx =', nx, 'and varx =', varx)
   
   res <- list(statistic=statistic,
@@ -101,7 +106,7 @@ t_test_one <- function(meanx, varx, nx, alternative, mu,
               conf.int=conf.int,
               estimate=estimate,
               mu=mu,
-              alternative=alternative,
+              alternative=alt,
               method=method,
               data.name=data.name)
   return(res)
@@ -121,7 +126,8 @@ t_test_two_difer <- function(meanx, varx, nx,
   statistic <- (meanx - meany - mu) / se
   
   if (alternative == 'two.sided') {
-    alt<-"true difference in means is not equal to"
+    mu <- as.numeric(mu)
+    alt <- paste("true difference in means is not equal to", mu)
     p.value <- 2 * pt(q=abs(statistic), df=df, lower.tail=FALSE)
     quantiles <- c(-qt(p=alpha/2, df=df, lower.tail=FALSE),
                    qt(p=alpha/2, df=df, lower.tail=FALSE))
@@ -129,14 +135,16 @@ t_test_two_difer <- function(meanx, varx, nx,
   }
   
   if (alternative == 'less') {
-    alt<-"true difference in means is less than"
+    mu <- as.numeric(mu)
+    alt <- paste("true difference in means is less than", mu)
     p.value <- pt(q=statistic, df=df, lower.tail=TRUE)
     conf.int <- c(-Inf,
                   (meanx-meany) + qt(p=alpha, df=df, lower.tail=F) * se)
   }
   
   if (alternative == 'greater') {
-    alt<- "true difference in means is greater than"
+    mu <- as.numeric(mu)
+    alt <- paste("true difference in means is greater than", mu)
     p.value <- pt(q=statistic, df=df, lower.tail=FALSE)
     conf.int <- c((meanx-meany) - qt(p=alpha, df=df, lower.tail=F) * se,
                   Inf)
@@ -158,7 +166,7 @@ t_test_two_difer <- function(meanx, varx, nx,
               conf.int=conf.int,
               estimate=estimate,
               mu=mu,
-              alternative=alternative,
+              alternative=alt,
               method=method,
               data.name=data.name)
   return(res)
@@ -180,7 +188,8 @@ t_test_two_equal <- function(meanx, varx, nx,
   statistic <- (meanx - meany - mu) / se
   
   if (alternative == 'two.sided') {
-    alt<-"true difference in means is not equal to"
+    mu <- as.numeric(mu)
+    alt <- paste("true difference in means is not equal to", mu)
     p.value <- 2 * pt(q=abs(statistic), df=df, lower.tail=FALSE)
     quantiles <- c(-qt(p=alpha/2, df=df, lower.tail=FALSE),
                    qt(p=alpha/2, df=df, lower.tail=FALSE))
@@ -188,14 +197,16 @@ t_test_two_equal <- function(meanx, varx, nx,
   }
   
   if (alternative == 'less') {
-    alt<-"true difference in means is less than"
+    mu <- as.numeric(mu)
+    alt <- paste("true difference in means is less than", mu)
     p.value <- pt(q=statistic, df=df, lower.tail=TRUE)
     conf.int <- c(-Inf,
-                  (meanx-meany) + qt(p=alpha, df=df, lower.tail=F) * se)
+                  (meanx - meany) + qt(p=alpha, df=df, lower.tail=F) * se)
   }
   
   if (alternative == 'greater') {
-    alt<-"true difference in means is greater than"
+    mu <- as.numeric(mu)
+    alt<- paste("true difference in means is greater than", mu)
     p.value <- pt(q=statistic, df=df, lower.tail=FALSE)
     conf.int <- c((meanx-meany) - qt(p=alpha, df=df, lower.tail=F) * se,
                   Inf)
@@ -218,7 +229,7 @@ t_test_two_equal <- function(meanx, varx, nx,
               conf.int=conf.int,
               estimate=estimate,
               mu=mu,
-              alternative=alternative,
+              alternative=alt,
               method=method,
               data.name=data.name)
   return(res)
@@ -229,8 +240,8 @@ t_test_two_equal <- function(meanx, varx, nx,
 #' @export
 plot.htest <- function(mod, col='red', cex=0.8, shade.col='red')
 {
-  # Z test
-  if (mod$method %in% c('Z test for mean')) {
+  # t test
+  if (mod$method %in% c('t test for one sample')) {
     if (mod$alternative == 'less')
       asbio::shade.norm(x=mod$statistic, tail='lower',
                         las=1, shade.col=shade.col)
@@ -286,5 +297,3 @@ plot.htest <- function(mod, col='red', cex=0.8, shade.col='red')
           col=col, cex=cex, adj=0.5)
   }
 }
-
-
