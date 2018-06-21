@@ -28,43 +28,43 @@ t_test <- function(meanx, varx, nx, meany=NULL, vary=NULL, ny=NULL,
       stop(paste("Some information about y sample is missing", "\n",""))
   }
   
-  #To check if the conf.level it´s a number between 1 and 0
+  #To check if the conf.level it's a number between 1 and 0
   if(conf.level <= 0 || conf.level >= 1)
     stop("The conf.level argument must be >0 and < 1", "\n", "" )
   if(conf.level < 0.5)
     warning("Confidence levels are often close to 1, eg. 0.95")
   
-  #To check if alternative is a valid name
+    #To check if alternative is a valid name
   stopifnot(alternative %in% c("two.sided","greater","less","t","g","l"))
   
   #response for a single population
-  if (is.null(meany) & is.null(vary)){
-    
+  if (is.null(meany) & is.null(vary) & is.null(ny))
     res <- t_test_one(meanx, varx, nx, alternative, mu, conf.level)
+  
+  else {
+    if (var.equal == TRUE)
+      res <- t_test_two_equal(meanx, varx, nx, meany, vary, ny, 
+                              alternative, mu, conf.level, var.equal)
     
-  } else if (var.equal == TRUE){
-    res <- t_test_two_equal(meanx, varx, nx, meany, vary, ny, 
-                            alternative, mu, conf.level, var.equal)
-  }else {
-    res <- t_test_two_difer(meanx, varx, nx, meany, vary, ny, 
-                            alternative, mu, conf.level, var.equal)
+    if (var.equal == FALSE)
+      res <- t_test_two_difer(meanx, varx, nx, meany, vary, ny, 
+                              alternative, mu, conf.level, var.equal)
   }
+
   class(res) <- "htest"
   res   
   
 }
 
-#' @export
+
 # function for a single population
 
 t_test_one <- function(meanx, varx, nx, alternative, mu,
-                       conf.level, var.equal) {
+                       conf.level) {
   
   alpha <- 1 - conf.level
   
   if (alternative == 'two.sided') {
-    mu <- as.numeric(mu)
-    alt <- paste("True mean is not equal to", mu) 
     statistic <- (meanx - mu) / sqrt(varx / nx)
     p.value <- 2 * pt(q=abs(statistic), df=nx-1, lower.tail=FALSE)
     quantiles <- c(-qt(p=alpha/2, df=nx-1, lower.tail=FALSE),
@@ -73,8 +73,6 @@ t_test_one <- function(meanx, varx, nx, alternative, mu,
   }
   
   if (alternative == 'less') {
-    mu <- as.numeric(mu)
-    alt <- paste("True mean is less than", mu)
     statistic <- (meanx - mu) / sqrt(varx / nx)
     p.value <- pt(q=statistic, df=nx-1, lower.tail=TRUE)
     conf.int <- c(-Inf,
@@ -82,8 +80,6 @@ t_test_one <- function(meanx, varx, nx, alternative, mu,
   }
   
   if (alternative == 'greater') {
-    mu <- as.numeric(mu)
-    alt <- paste("True mean is greater than", mu)
     statistic <- (meanx - mu) / sqrt(varx / nx)
     p.value <- pt(q=statistic, df=nx-1, lower.tail=FALSE)
     conf.int <- c(meanx + qt(p=alpha, df=nx-1) * sqrt(varx / nx),
@@ -97,27 +93,30 @@ t_test_one <- function(meanx, varx, nx, alternative, mu,
   attr(conf.int, 'conf.level') <- conf.level
   estimate <- meanx
   names(estimate) <- 'mean of x'
+  null.value <- mu
+  names(null.value) <- 'mean'
   method <- 'One Sample t-test'
-  data.name <- paste('meanx =', meanx, 'nx =', nx, 'and varx =', varx)
+  data.name <- paste('meanx = ', meanx, ', var = ', varx, ' and nx = ', nx, sep='')
   
   res <- list(statistic=statistic,
               parameter=parameter,
               p.value=p.value,
               conf.int=conf.int,
               estimate=estimate,
-              mu=mu,
-              alternative=alt,
+              null.value=null.value,
+              alternative=alternative,
               method=method,
               data.name=data.name)
   return(res)
 }
 
 # Function for two population when the variance is different
-#' @export
+
 t_test_two_difer <- function(meanx, varx, nx,
                              meany, vary, ny,
-                             mu, alternative,
+                             alternative, mu,
                              conf.level, var.equal) {
+  
   
   alpha <- 1 - conf.level
   
@@ -126,8 +125,6 @@ t_test_two_difer <- function(meanx, varx, nx,
   statistic <- (meanx - meany - mu) / se
   
   if (alternative == 'two.sided') {
-    mu <- as.numeric(mu)
-    alt <- paste("true difference in means is not equal to", mu)
     p.value <- 2 * pt(q=abs(statistic), df=df, lower.tail=FALSE)
     quantiles <- c(-qt(p=alpha/2, df=df, lower.tail=FALSE),
                    qt(p=alpha/2, df=df, lower.tail=FALSE))
@@ -135,38 +132,36 @@ t_test_two_difer <- function(meanx, varx, nx,
   }
   
   if (alternative == 'less') {
-    mu <- as.numeric(mu)
-    alt <- paste("true difference in means is less than", mu)
     p.value <- pt(q=statistic, df=df, lower.tail=TRUE)
     conf.int <- c(-Inf,
                   (meanx-meany) + qt(p=alpha, df=df, lower.tail=F) * se)
   }
   
   if (alternative == 'greater') {
-    mu <- as.numeric(mu)
-    alt <- paste("true difference in means is greater than", mu)
     p.value <- pt(q=statistic, df=df, lower.tail=FALSE)
     conf.int <- c((meanx-meany) - qt(p=alpha, df=df, lower.tail=F) * se,
                   Inf)
   }
   # To ensure that the output values are in the correct form
-  names(statistic) <- 'T'
+  names(statistic) <- 't'
   parameter <- df
   names(parameter) <- 'df'
   attr(conf.int, 'conf.level') <- conf.level
-  estimate <- meanx - meany
-  names(estimate) <- 'difference of means'
-  method <- 'T test to compare two means with different variance'
-  data.name <- paste('meanx =', meanx, ', nx =', nx,
-                     ', meanyy =', meany, 'and ny =', ny)
+  estimate <- c(meanx, meany)
+  names(estimate) <- c('mean of x', 'mean of y')
+  null.value <- mu
+  names(null.value) <- 'difference in means'
+  method <- 'Welch Two Sample t-test'
+  data.name <- paste('meanx = ', meanx, ', nx = ', nx,
+                     ', meany = ', meany, ' and ny = ', ny, sep='')
   
   res <- list(statistic=statistic,
               parameter=parameter,
               p.value=p.value,
               conf.int=conf.int,
               estimate=estimate,
-              mu=mu,
-              alternative=alt,
+              null.value=null.value,
+              alternative=alternative,
               method=method,
               data.name=data.name)
   return(res)
@@ -174,10 +169,10 @@ t_test_two_difer <- function(meanx, varx, nx,
 
 
 #Function for two population when the variance is equal.
-#' @export
+
 t_test_two_equal <- function(meanx, varx, nx,
                              meany, vary, ny,
-                             mu, alternative,
+                             alternative, mu,
                              conf.level, var.equal) {
   
   alpha <- 1 - conf.level
@@ -213,35 +208,37 @@ t_test_two_equal <- function(meanx, varx, nx,
   }
   
   # To ensure that the output values are in the correct form
-  names(statistic) <- 'T'
-  parameter <- nx + ny + 2
+  names(statistic) <- 't'
+  parameter <- df
   names(parameter) <- 'df'
   attr(conf.int, 'conf.level') <- conf.level
-  estimate <- meanx - meany
-  names(estimate) <- 'difference of means'
-  method <- 'T test to compare two means with equal variance'
+  estimate <- c(meanx, meany)
+  names(estimate) <- c('mean of x', 'mean of y')
+  null.value <- mu
+  names(null.value) <- 'difference in means'
+  method <- 'Two Sample t-test'
   data.name <- paste('meanx =', meanx, ', nx =', nx,
-                     ', meanyy =', meany, 'and ny =', ny)
+                     ', meany =', meany, 'and ny =', ny)
   
-  res <- list(statistic=statistic,
-              parameter=parameter,
-              p.value=p.value,
-              conf.int=conf.int,
-              estimate=estimate,
-              mu=mu,
-              alternative=alt,
-              method=method,
-              data.name=data.name)
+  res <- list(statistic = statistic,
+              parameter = parameter,
+              p.value = p.value,
+              conf.int = conf.int,
+              estimate = estimate,
+              null.value = null.value,
+              alternative = alternative,
+              method = method,
+              data.name = data.name)
   return(res)
 }
-  
+
 
 ###para ver los resultados 
-#' @export
+
 plot.htest <- function(mod, col='red', cex=0.8, shade.col='red')
 {
-  # t test
-  if (mod$method %in% c('t test for one sample')) {
+  # 'One Sample t-test'
+  if (mod$method %in% c('One Sample t-test')) {
     if (mod$alternative == 'less')
       asbio::shade.norm(x=mod$statistic, tail='lower',
                         las=1, shade.col=shade.col)
@@ -257,8 +254,8 @@ plot.htest <- function(mod, col='red', cex=0.8, shade.col='red')
           col=col, cex=cex, adj=0.5)
   }
   
-  # T test equal
-  if (mod$method %in% c('T test to compare two means with different variance')) {
+  # Welch Test
+  if (mod$method %in% c('Welch Two Sample t-test')) {
     if (mod$alternative == 'less')
       asbio::shade.chi(x=mod$statistic, nu=mod$parameter, 
                        tail='lower', las=1, shade.col=shade.col)
@@ -275,8 +272,8 @@ plot.htest <- function(mod, col='red', cex=0.8, shade.col='red')
           col=col, cex=cex, adj=0.5)
   }
   
-  # T test different
-  if (mod$method %in% c('T test to compare two means with equal variance')) {
+  # Two Sample t-test 
+  if (mod$method %in% c('Two Sample t-test')) {
     if (mod$alternative == 'less')
       asbio::shade.F(x=mod$statistic,
                      nu=mod$parameter,
@@ -297,3 +294,6 @@ plot.htest <- function(mod, col='red', cex=0.8, shade.col='red')
           col=col, cex=cex, adj=0.5)
   }
 }
+
+
+
